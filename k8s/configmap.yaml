@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bank-api-config
+  namespace: banking-system
+data:
+  DB_PATH: "/root/data/bank.db"
+  PORT: "8080"
+  OTLP_ENDPOINT: "tempo:4318"
+  LOKI_ENDPOINT: "http://loki:3100"
+  GIN_MODE: "release"

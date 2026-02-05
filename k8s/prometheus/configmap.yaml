@@ -1,0 +1,64 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: banking-system
+data:
+  prometheus.yaml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        cluster: 'banking-system'
+        environment: 'kubernetes'
+
+    # Alertmanager configuration (optional)
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets: []
+
+    # Load rules once and periodically evaluate them
+    rule_files:
+      # - "rules/*.yml"
+
+    # Scrape configurations
+    scrape_configs:
+      # Scrape Prometheus itself
+      - job_name: 'prometheus'
+        static_configs:
+          - targets: ['localhost:9090']
+            labels:
+              service: 'prometheus'
+
+      # Scrape Bank API
+      - job_name: 'bank-api'
+        metrics_path: '/metrics'
+        scrape_interval: 15s
+        static_configs:
+          - targets: ['bank-api:8080']
+            labels:
+              service: 'bank-api'
+              app: 'bank-api'
+              namespace: 'banking-system'
+
+      # Scrape Grafana metrics (if enabled)
+      - job_name: 'grafana'
+        static_configs:
+          - targets: ['grafana:3000']
+            labels:
+              service: 'grafana'
+
+      # Scrape Loki metrics
+      - job_name: 'loki'
+        static_configs:
+          - targets: ['loki:3100']
+            labels:
+              service: 'loki'
+
+      # Scrape Tempo metrics
+      - job_name: 'tempo'
+        static_configs:
+          - targets: ['tempo:3200']
+            labels:
+              service: 'tempo'

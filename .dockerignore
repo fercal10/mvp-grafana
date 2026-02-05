@@ -1,0 +1,50 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+README.md
+
+# Build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bank-api
+
+# Test files
+*_test.go
+testdata/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Data
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Kubernetes
+k8s/
+*.yaml
+*.yml
+
+# Docker
+Dockerfile*
+docker-compose*
+
+# Misc
+.DS_Store
+tmp/
+temp/

@@ -1,0 +1,48 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tempo-conf
+  labels:
+    name: grafana-sources-conf
+  namespace: banking-system
+
+data:
+  datasources.yaml: |-
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus.monitoring:8080
+      - name: Loki
+        type: loki
+        url: http://loki-gateway.monitoring:80
+        jsonData:
+          httpHeaderName1: X-Scope-OrgID
+        secureJsonData:
+          httpHeaderValue1: Tribal
+      - name: Tempo
+        type: tempo
+        url: http://tempo:3200
+        jsonData:
+          httpHeaderName1: X-Scope-OrgID
+          tracesToLogsV2:
+            datasourceUid: 'Loki'
+            tags: ['job', 'instance', 'pod', 'namespace']
+            mappedTags: [{ key: 'service.name', value: 'service_name' }]
+            mapTagNamesEnabled: true
+            spanStartTimeShift: '-1h'
+            spanEndTimeShift: '1h'
+            filterByTraceID: false
+            filterBySpanID: false
+            customQuery: true
+            query: '{service_name="${__span.tags.service_name}"} | label_format log_line_contains_trace_id=`{{ contains "${__span.traceId}" __line__  }}` | log_line_contains_trace_id="true" or trace_id="${__span.traceId}"'
+          lokiSearch:
+            datasourceUid: 'Loki'
+          serviceMap:
+            datasourceUid: 'tempo'
+          nodeGraph:
+            enabled: true
+
+        secureJsonData:
+          httpHeaderValue1: Tribal
