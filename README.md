@@ -91,11 +91,10 @@ La API se despliega como dos microservicios (accounts-api y transfers-api) que c
 ├── pkg/
 │   └── telemetry/                  # Configuración OpenTelemetry
 ├── k8s/                            # Manifiestos Kubernetes
-│   ├── grafana/
-│   ├── loki/
-│   ├── tempo/
-│   ├── promtail/
-│   └── prometheus/
+│   ├── accounts-api/               # ConfigMap, Deployment, Service, PVC de cuentas
+│   ├── transfers-api/              # ConfigMap, Deployment, Service, PVC de transferencias
+│   ├── helm/                       # Valores Helm (Grafana, Loki, Prometheus, Tempo)
+│   └── namespace.yaml
 ├── config/                         # Configuración para docker-compose
 ├── migrations/                     # Migraciones SQL
 ├── Dockerfile
@@ -142,30 +141,15 @@ minikube image load transfers-api:latest
 
 3. **Desplegar todos los componentes:**
 
+El script `./scripts/deploy-k8s.sh` aplica el namespace, despliega el stack de observabilidad con Helm (Loki, Tempo, Prometheus, Grafana) y luego los microservicios. De forma manual:
+
 ```bash
-# Aplicar todos los manifiestos
 kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/configmap.yaml
-kubectl apply -f k8s/
-
-# Aplicar componentes de observabilidad
-kubectl apply -f k8s/loki/
-kubectl apply -f k8s/tempo/
-kubectl apply -f k8s/promtail/
-kubectl apply -f k8s/prometheus/
-kubectl apply -f k8s/grafana/
-
-# Aplicar la API (configmaps, PVC compartido, deployments y services de ambos microservicios)
-kubectl apply -f k8s/configmap.yaml
-kubectl apply -f k8s/configmap-transfers.yaml
-kubectl apply -f k8s/pvc-data.yaml
-kubectl apply -f k8s/deployment.yaml
-kubectl apply -f k8s/deployment-transfers.yaml
-kubectl apply -f k8s/service.yaml
-kubectl apply -f k8s/service-transfers.yaml
+kubectl apply -f k8s/accounts-api/
+kubectl apply -f k8s/transfers-api/
 ```
 
-**Nota:** El PVC compartido (`pvc-data.yaml`) usa `ReadWriteMany` para que ambos pods monten la misma DB. Si tu cluster no tiene un storage class con RWM (p. ej. kind/minikube sin NFS), el PVC puede quedar en Pending. En ese caso, para desarrollo local puedes cambiar en `deployment.yaml` y `deployment-transfers.yaml` el volumen a `emptyDir: {}` en lugar de `persistentVolumeClaim`; entonces cada pod tendrá su propia DB y los datos no se comparten entre servicios.
+**Nota:** Cada API tiene su propio PVC (`k8s/accounts-api/pvc.yaml` y `k8s/transfers-api/pvc.yaml`) con ReadWriteOnce. Para desarrollo local, si el PVC queda en Pending, puedes cambiar en cada `deployment.yaml` el volumen a `emptyDir: {}` en lugar de `persistentVolumeClaim` para que cada pod use almacenamiento efímero.
 
 4. **Verificar el despliegue:**
 

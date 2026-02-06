@@ -2,9 +2,10 @@
 
 set -e
 
-# With microservices: first arg = accounts-api URL, second arg = transfers-api URL (defaults to first if omitted)
-BASE_URL="${1:-http://localhost:8080}"
-TRANSFERS_URL="${2:-$BASE_URL}"
+# With microservices: first arg = accounts-api URL, second arg = transfers-api URL
+# Defaults match k8s port-forward (30080 / 30081); use 8080/8081 for local/docker.
+BASE_URL="${1:-http://localhost:30080}"
+TRANSFERS_URL="${2:-http://localhost:30081}"
 
 echo "🧪 Testing Bank API"
 echo "   Accounts:  $BASE_URL"

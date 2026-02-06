@@ -31,36 +31,27 @@ echo "☸️  Applying Kubernetes manifests..."
 
 kubectl apply -f k8s/namespace.yaml
 
-echo "Deploying Loki..."
-kubectl apply -f k8s/loki/
+# Helm repos for LGTM stack (Grafana, Loki, Prometheus, Tempo)
+echo "📦 Adding Helm repos..."
+helm repo add grafana https://grafana.github.io/helm-charts 
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts 
+helm repo update
 
-echo "Deploying Tempo..."
-kubectl apply -f k8s/tempo/
+echo "Deploying Loki (Helm)..."
+helm upgrade --install loki grafana/loki -n banking-system -f k8s/helm/loki-values.yaml 
 
-echo "Deploying Prometheus..."
-kubectl apply -f k8s/prometheus/
+echo "Deploying Tempo (Helm)..."
+helm upgrade --install tempo grafana/tempo -n banking-system -f k8s/helm/tempo-values.yaml 
 
-echo "Deploying Promtail..."
-kubectl apply -f k8s/promtail/
+echo "Deploying Prometheus (Helm)..."
+helm upgrade --install prometheus prometheus-community/prometheus -n banking-system -f k8s/helm/prometheus-values.yaml 
 
-echo "⏳ Waiting for Loki and Prometheus to be ready..."
-kubectl wait --for=condition=ready pod -l app=loki -n banking-system --timeout=120s
-kubectl wait --for=condition=ready pod -l app=prometheus -n banking-system --timeout=120s
-
-echo "Deploying Grafana..."
-# Solo aplicar manifests YAML (dashboard.json es JSON de Grafana, no recurso K8s)
-for f in k8s/grafana/*.yaml; do
-  kubectl apply -f "$f"
-done
+echo "Deploying Grafana (Helm)..."
+helm upgrade --install grafana grafana/grafana -n banking-system -f k8s/helm/grafana-values.yaml  
 
 echo "Deploying Bank API microservices..."
-kubectl apply -f k8s/configmap.yaml
-kubectl apply -f k8s/configmap-transfers.yaml
-kubectl apply -f k8s/pvc-data.yaml
-kubectl apply -f k8s/deployment.yaml
-kubectl apply -f k8s/deployment-transfers.yaml
-kubectl apply -f k8s/service.yaml
-kubectl apply -f k8s/service-transfers.yaml
+kubectl apply -f k8s/accounts-api/
+kubectl apply -f k8s/transfers-api/
 
 echo "⏳ Waiting for pods to be ready..."
 kubectl wait --for=condition=ready pod -l app=accounts-api -n banking-system --timeout=120s
@@ -73,7 +64,7 @@ pkill -f "port-forward.*banking-system.*30081" 2>/dev/null || true
 pkill -f "port-forward.*banking-system.*30300" 2>/dev/null || true
 nohup kubectl port-forward -n banking-system svc/accounts-api 30080:8080 >/dev/null 2>&1 &
 nohup kubectl port-forward -n banking-system svc/transfers-api 30081:8081 >/dev/null 2>&1 &
-nohup kubectl port-forward -n banking-system svc/grafana 30300:3000 >/dev/null 2>&1 &
+nohup kubectl port-forward -n banking-system svc/grafana 30300:80 >/dev/null 2>&1 &
 sleep 1
 
 echo "✅ Deployment complete!"

@@ -1,0 +1,19 @@
+fullnameOverride: tempo
+
+tempo:
+  multitenancyEnabled: false
+  metricsGenerator:
+    enabled: true
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+tempoQuery:
+  enabled: true
+
+persistence:
+  enabled: false

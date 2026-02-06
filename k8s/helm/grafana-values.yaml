@@ -1,0 +1,82 @@
+# Grafana Helm values for banking-system LGTM stack
+# Chart: grafana/grafana (https://grafana.github.io/helm-charts)
+
+adminUser: admin
+adminPassword: admin
+
+# Persistence disabled for dev (emptyDir); enable for production
+persistence:
+  enabled: false
+
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
+
+# Datasources: Loki, Tempo, Prometheus (same namespace banking-system)
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Loki
+        uid: loki
+        type: loki
+        access: proxy
+        url: http://loki:3100
+        isDefault: true
+        jsonData:
+          maxLines: 1000
+      - name: Tempo
+        type: tempo
+        access: proxy
+        url: http://tempo:3200
+        jsonData:
+          tracesToLogs:
+            datasourceUid: loki
+            tags: ["job", "instance", "pod", "namespace"]
+            mappedTags: [{ key: "service.name", value: "service" }]
+            mapTagNamesEnabled: false
+            spanStartTimeShift: "1h"
+            spanEndTimeShift: "1h"
+            filterByTraceID: false
+            filterBySpanID: false
+          lokiSearch:
+            datasourceUid: loki
+          serviceMap:
+            datasourceUid: tempo
+          nodeGraph:
+            enabled: true
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus:80
+        jsonData:
+          httpMethod: POST
+          exemplarTraceIdDestinations:
+            - name: trace_id
+              datasourceUid: tempo
+
+# Dashboard provisioning
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: default
+        orgId: 1
+        folder: ""
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 10
+        allowUiUpdates: true
+        options:
+          path: /var/lib/grafana/dashboards
+
+# Bank API dashboard (embedded JSON)
+dashboards:
+  default:
+    bank-api-dashboard:
+      json: |
+        {"dashboard":{"id":null,"uid":"bank-api-dashboard","title":"Bank API Monitoring","tags":["bank-api","opentelemetry"],"timezone":"browser","schemaVersion":16,"version":0,"refresh":"5s","panels":[{"id":1,"title":"API Request Rate","type":"graph","gridPos":{"x":0,"y":0,"w":12,"h":8},"targets":[{"expr":"rate({namespace=\"banking-system\", app=\"bank-api\"}[5m])","refId":"A","datasource":{"type":"loki","uid":"loki"}}]},{"id":2,"title":"Recent Logs","type":"logs","gridPos":{"x":0,"y":8,"w":24,"h":10},"targets":[{"expr":"{namespace=\"banking-system\", app=\"bank-api\"}","refId":"A","datasource":{"type":"loki","uid":"loki"}}],"options":{"showTime":true,"showLabels":true,"sortOrder":"Descending"}},{"id":3,"title":"HTTP Status Codes","type":"stat","gridPos":{"x":12,"y":0,"w":12,"h":8},"targets":[{"expr":"sum by (status) (rate({namespace=\"banking-system\", app=\"bank-api\"} | json | status != \"\" [5m]))","refId":"A","datasource":{"type":"loki","uid":"loki"}}]},{"id":4,"title":"Transfer Operations","type":"timeseries","gridPos":{"x":0,"y":18,"w":12,"h":8},"targets":[{"expr":"{namespace=\"banking-system\", app=\"bank-api\"} |= \"POST\" |= \"/api/transfers\"","refId":"A","datasource":{"type":"loki","uid":"loki"}}]},{"id":5,"title":"Error Logs","type":"logs","gridPos":{"x":12,"y":18,"w":12,"h":8},"targets":[{"expr":"{namespace=\"banking-system\", app=\"bank-api\"} |~ \"error|Error|ERROR|failed|Failed\"","refId":"A","datasource":{"type":"loki","uid":"loki"}}]}]}}}

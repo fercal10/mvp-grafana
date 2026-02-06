@@ -1,13 +1,12 @@
+# PVC para SQLite de accounts-api (ReadWriteOnce compatible con k3d/kind).
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: prometheus-storage
+  name: accounts-data-pvc
   namespace: banking-system
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 10Gi
-  # Uncomment and modify if you have a specific storage class
-  # storageClassName: standard
+      storage: 1Gi

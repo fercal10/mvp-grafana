@@ -31,10 +31,9 @@ mvp-grafana/
 │   └── service/                   # Lógica de negocio
 ├── pkg/telemetry/                 # OpenTelemetry setup
 ├── k8s/                           # Kubernetes manifests
-│   ├── grafana/                   # Grafana deployment
-│   ├── loki/                      # Loki deployment
-│   ├── tempo/                     # Tempo deployment
-│   └── promtail/                  # Promtail deployment
+│   ├── accounts-api/              # ConfigMap, Deployment, Service, PVC (cuentas)
+│   ├── transfers-api/              # ConfigMap, Deployment, Service, PVC (transferencias)
+│   └── helm/                      # Valores Helm (Grafana, Loki, Prometheus, Tempo)
 ├── config/                        # Configuraciones docker-compose
 ├── scripts/                       # Scripts de automatización
 ├── migrations/                    # SQL migrations
@@ -212,9 +211,9 @@ make test-api           # Probar API
 
 ### Configuración
 - `docker-compose.yml` - Stack completo para desarrollo
-- `k8s/deployment.yaml` - Deployment de accounts-api
-- `k8s/deployment-transfers.yaml` - Deployment de transfers-api
-- `k8s/grafana/configmap.yaml` - Datasources de Grafana
+- `k8s/accounts-api/deployment.yaml` - Deployment de accounts-api
+- `k8s/transfers-api/deployment.yaml` - Deployment de transfers-api
+- `k8s/helm/grafana-values.yaml` - Configuración de Grafana (Helm)
 
 ### Documentación
 - `README.md` - Documentación principal

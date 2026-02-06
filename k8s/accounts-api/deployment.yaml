@@ -54,4 +54,4 @@ spec:
       volumes:
       - name: data
         persistentVolumeClaim:
-          claimName: data-pvc
+          claimName: accounts-data-pvc

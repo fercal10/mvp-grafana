@@ -1,4 +1,4 @@
-.PHONY: build run test build-accounts build-transfers build-all k8s-deploy k8s-delete k8s-logs-accounts k8s-logs-transfers clean help
+.PHONY: build run test build-accounts build-transfers build-all k8s-deploy k8s-delete k8s-status helm-repo-update k8s-logs-accounts k8s-logs-transfers clean help
 
 # Variables
 ACCOUNTS_APP=accounts-api
@@ -58,6 +58,12 @@ k8s-delete: ## Delete Kubernetes deployment
 k8s-status: ## Check Kubernetes deployment status
 	@echo "Checking Kubernetes status..."
 	kubectl get all -n $(NAMESPACE)
+
+helm-repo-update: ## Update Helm repos (grafana, prometheus-community)
+	@echo "Updating Helm repos..."
+	helm repo add grafana https://grafana.github.io/helm-charts 2>/dev/null || true
+	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts 2>/dev/null || true
+	helm repo update
 
 k8s-logs-accounts: ## Show Kubernetes logs for accounts-api
 	kubectl logs -n $(NAMESPACE) -l app=$(ACCOUNTS_APP) -f
