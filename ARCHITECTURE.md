@@ -2,60 +2,72 @@
 
 ## Visión General
 
-El sistema consiste en una API bancaria simple desarrollada en Go con Gin, completamente instrumentada con OpenTelemetry y Prometheus, con un stack completo de observabilidad basado en Grafana para visualización de métricas, logs y trazas.
+El sistema es una API bancaria desarrollada en Go con Gin, dividida en dos microservicios (**accounts-api** y **transfers-api**) que comparten la misma base de datos. Está completamente instrumentada con OpenTelemetry y Prometheus y utiliza un stack de observabilidad basado en Grafana (métricas, logs y trazas).
 
 ## Componentes
 
-### 1. Bank API (Aplicación Principal)
+### 1. Bank API (Microservicios)
+
+La API está dividida en dos microservicios que comparten la misma base de datos (mismo `DB_PATH`) para mantener la atomicidad de las transferencias sin llamadas HTTP entre servicios.
 
 **Tecnologías:**
-- Go 1.22
+
+- Go 1.24+
 - Gin (framework HTTP)
 - GORM (ORM)
-- SQLite (base de datos)
+- SQLite (base de datos compartida)
 - OpenTelemetry SDK
 
-**Responsabilidades:**
-- Gestionar cuentas bancarias
-- Procesar transferencias
-- Registrar transacciones
-- Emitir trazas, logs y métricas instrumentados
+**Microservicios:**
+
+- **accounts-api** (puerto 8080): Cuentas (listar, obtener, crear) y transacciones por cuenta (`GET /api/accounts/:id/transactions`), health, ready, `/metrics`.
+- **transfers-api** (puerto 8081): Transferencias (crear, obtener), health, ready, `/metrics`.
+
+Cada servicio emite trazas, logs y métricas con su propio nombre (`accounts-api` / `transfers-api`) para distinguirlos en Loki, Tempo y Prometheus.
 
 **Estructura de Código:**
+
 ```
-cmd/server/main.go           # Punto de entrada, configuración de servidor
+cmd/
+  accounts-api/main.go       # Entrypoint accounts-api
+  transfers-api/main.go      # Entrypoint transfers-api
 internal/
   handlers/                  # Handlers HTTP (capa de presentación)
   models/                    # Modelos de dominio
-  repository/                # Acceso a datos (SQLite)
+  repository/                # Acceso a datos (SQLite, compartido)
   service/                   # Lógica de negocio
-pkg/telemetry/               # Configuración OpenTelemetry
+pkg/telemetry/               # Configuración OpenTelemetry (compartido)
 ```
 
 ### 2. Prometheus (Métricas)
 
 **Función:**
-- Recolectar métricas de la Bank API vía scraping del endpoint `/metrics`
-- Almacenar métricas con series temporales
+
+- Recolectar métricas de ambos microservicios (accounts-api y transfers-api) vía scraping del endpoint `/metrics` de cada uno
+- Almacenar métricas con series temporales (con labels `job`/`instance` que identifican el servicio)
 - Proveer API de consulta para Grafana
 
 **Configuración:**
+
 - Retención: 7 días
 - Scrape interval: 15 segundos
 - Storage: Filesystem local
 
 **Métricas Recolectadas:**
+
 - Métricas HTTP: requests totales, duración, tamaño
 - Métricas de negocio: cuentas creadas, transferencias, balances
 
 ### 3. OpenTelemetry (Trazas)
 
 **Componentes:**
+
 - **TracerProvider**: Gestión de trazas distribuidas
 - **OTLP Exporter**: Exportador HTTP hacia Tempo
 - **Gin Middleware**: Instrumentación automática de requests HTTP
 
 **Datos Exportados:**
+
 - **Traces**: Cada request HTTP genera un trace con spans
 - **Spans**: Operaciones de servicio (CreateAccount, CreateTransfer, etc.)
 - **Attributes**: Metadata de operaciones (account_id, amount, etc.)
@@ -63,11 +75,13 @@ pkg/telemetry/               # Configuración OpenTelemetry
 ### 4. Tempo (Almacenamiento de Trazas)
 
 **Función:**
+
 - Recibir trazas vía OTLP (puerto 4318 HTTP, 4317 gRPC)
 - Almacenar trazas en formato local
 - Proveer API de consulta para Grafana
 
 **Endpoints:**
+
 - 3200: API HTTP para consultas
 - 4317: Receptor OTLP gRPC
 - 4318: Receptor OTLP HTTP
@@ -75,11 +89,13 @@ pkg/telemetry/               # Configuración OpenTelemetry
 ### 5. Loki (Almacenamiento de Logs)
 
 **Función:**
+
 - Recibir logs de Promtail
 - Indexar y almacenar logs
 - Proveer API de consulta (LogQL)
 
 **Configuración:**
+
 - Retención: 7 días (168h)
 - Storage: Filesystem local
 - Schema: v11 con boltdb-shipper
@@ -87,11 +103,13 @@ pkg/telemetry/               # Configuración OpenTelemetry
 ### 6. Promtail (Recolector de Logs)
 
 **Función:**
+
 - Scraping de logs de contenedores Docker
 - Scraping de logs de pods Kubernetes
 - Envío de logs a Loki con labels
 
 **Labels Agregados:**
+
 - `namespace`: Namespace de Kubernetes
 - `app`: Nombre de la aplicación
 - `pod`: Nombre del pod
@@ -100,11 +118,13 @@ pkg/telemetry/               # Configuración OpenTelemetry
 ### 7. Grafana (Visualización)
 
 **Datasources:**
+
 - **Prometheus**: Para consultar métricas
 - **Loki**: Para consultar logs
 - **Tempo**: Para consultar trazas
 
 **Dashboard Pre-configurado:**
+
 - Request rate por endpoint
 - Status codes distribution
 - Recent logs panel
@@ -113,16 +133,16 @@ pkg/telemetry/               # Configuración OpenTelemetry
 
 ## Flujo de Datos
 
-### Request HTTP Normal
+### Request HTTP (accounts-api o transfers-api)
 
 ```
-1. Cliente → Bank API (POST /api/transfers)
-2. Gin Middleware → OpenTelemetry crea trace + Prometheus registra métricas
-3. Handler → Service → Repository
+1. Cliente → accounts-api (ej. GET /api/accounts) o transfers-api (ej. POST /api/transfers)
+2. Gin Middleware → OpenTelemetry crea trace + Prometheus registra métricas (serviceName distinto por servicio)
+3. Handler → Service → Repository (compartido; mismo DB_PATH)
 4. Cada capa agrega spans al trace y actualiza métricas
-5. OpenTelemetry exporta trace a Tempo
-6. Gin escribe logs → stdout → Promtail → Loki
-7. Prometheus scrape endpoint /metrics cada 15s
+5. OpenTelemetry exporta trace a Tempo (resource con nombre del servicio)
+6. LokiLogger escribe logs → Loki (stream con label app=accounts-api o app=transfers-api) y stdout → Promtail → Loki
+7. Prometheus scrape /metrics de cada servicio cada 15s (dos jobs: accounts-api:8080, transfers-api:8081)
 8. Respuesta al cliente
 ```
 
@@ -148,51 +168,42 @@ pkg/telemetry/               # Configuración OpenTelemetry
 │                    (curl, Postman, etc)                      │
 └────────────────────────┬────────────────────────────────────┘
                          │ HTTP REST
+           ┌─────────────┴─────────────┐
+           ▼                           ▼
+┌──────────────────────┐    ┌──────────────────────┐
+│    accounts-api      │    │   transfers-api      │
+│    (puerto 8080)     │    │   (puerto 8081)      │
+│  ┌────────────────┐ │    │  ┌────────────────┐  │
+│  │ Gin + Middleware│ │    │  │ Gin + Middleware│  │
+│  │ Prometheus,     │ │    │  │ Prometheus,    │  │
+│  │ otelgin, Loki   │ │    │  │ otelgin, Loki   │  │
+│  └────────┬────────┘ │    │  └────────┬────────┘  │
+│  ┌────────▼────────┐ │    │  ┌────────▼────────┐  │
+│  │ Handlers:       │ │    │  │ Handlers:       │  │
+│  │ accounts,       │ │    │  │ transfers,      │  │
+│  │ transactions    │ │    │  │ transactions    │  │
+│  └────────┬────────┘ │    │  └────────┬────────┘  │
+│  ┌────────▼────────┐ │    │  ┌────────▼────────┐  │
+│  │ AccountService  │ │    │  │ TransferService │  │
+│  └────────┬────────┘ │    │  └────────┬────────┘  │
+│           │          │    │           │           │
+└───────────┼──────────┘    └───────────┼───────────┘
+            │                            │
+            └────────────┬───────────────┘
                          ▼
-┌─────────────────────────────────────────────────────────────┐
-│                       Bank API                               │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │           Gin Router + Middleware                      │  │
-│  │  ┌────────────────────────────────────────────────┐   │  │
-│  │  │  Prometheus Middleware                         │   │  │
-│  │  │  - Registra métricas HTTP                      │   │  │
-│  │  └────────────────────────────────────────────────┘   │  │
-│  │  ┌────────────────────────────────────────────────┐   │  │
-│  │  │  OpenTelemetry Gin Middleware (otelgin)        │   │  │
-│  │  │  - Crea trace por request                      │   │  │
-│  │  │  - Inyecta contexto en handlers                │   │  │
-│  │  └────────────────────────────────────────────────┘   │  │
-│  └───────────────────────────────────────────────────────┘  │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │             Endpoint /metrics                         │  │
-│  │  - Expone métricas Prometheus                         │  │
-│  └───────────────────────────────────────────────────────┘  │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │                    Handlers                           │  │
-│  │  - accounts.go (GET, POST accounts)                   │  │
-│  │  - transfers.go (POST transfers)                      │  │
-│  │  - transactions.go (health checks)                    │  │
-│  └────────────────────┬──────────────────────────────────┘  │
-│                       │                                      │
-│  ┌────────────────────▼──────────────────────────────────┐  │
-│  │                   Services                            │  │
-│  │  - account_service.go                                 │  │
-│  │  - transfer_service.go                                │  │
-│  │  (Lógica de negocio + Spans + Métricas)              │  │
-│  └────────────────────┬──────────────────────────────────┘  │
-│                       │                                      │
-│  ┌────────────────────▼──────────────────────────────────┐  │
-│  │                 Repository                            │  │
-│  │  - sqlite.go (GORM + SQLite)                          │  │
-│  └───────────────────────────────────────────────────────┘  │
-│                                                              │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │         OpenTelemetry SDK                             │  │
-│  │  - TracerProvider                                     │  │
-│  │  - OTLP Exporter (HTTP)                               │  │
-│  └────────────────────┬──────────────────────────────────┘  │
-└─────────────────────────┼────────────────────────────────────┘
-                         │ OTLP/HTTP (4318)
+            ┌────────────────────────────┐
+            │  Repository (compartido)   │
+            │  sqlite.go (GORM)         │
+            │  mismo DB_PATH             │
+            └────────────┬───────────────┘
+                         ▼
+            ┌────────────────────────────┐
+            │  SQLite (base de datos     │
+            │  compartida por ambos)     │
+            └────────────────────────────┘
+
+Ambos microservicios exportan trazas vía OTLP/HTTP (4318)
+                         │
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                        Tempo                                 │
@@ -221,7 +232,7 @@ pkg/telemetry/               # Configuración OpenTelemetry
 │  │  - Filtra por labels                                  │ │
 │  └────────────────────────────────────────────────────────┘ │
 │  ┌────────────────────────────────────────────────────────┐ │
-│  │           Dashboard: Bank API Monitoring               │ │
+│  │       Dashboard: Bank API Microservices                │ │
 │  │  - Request rate (Prometheus)                          │ │
 │  │  - Request duration (Prometheus)                      │ │
 │  │  - Business metrics (Prometheus)                      │ │
@@ -235,10 +246,11 @@ pkg/telemetry/               # Configuración OpenTelemetry
      ▼                   ▼
 ┌──────────────┐  ┌─────────────────────────────────────────┐
 │  Prometheus  │  │              Loki                        │
-│              │  │  - Almacena logs indexados               │
-│  - Scrape    │  │  - Storage: /tmp/loki                    │
-│    /metrics  │  │  - Retención: 7 días                     │
-│    cada 15s  │  └─────────────────────┬───────────────────┘
+│  - Scrape    │  │  - Almacena logs indexados               │
+│    accounts  │  │  - Storage: /tmp/loki                    │
+│    -api:8080 │  │                                          │
+│    transfers │  │  - app=accounts-api|transfers-api        │
+│    -api:8081 │  └─────────────────────┬───────────────────┘
 │  - Retención │                        ▲
 │    7 días    │                        │ Push API (3100)
 │  - Storage:  │                        │
@@ -253,6 +265,7 @@ pkg/telemetry/               # Configuración OpenTelemetry
 ## Modelos de Datos
 
 ### Account
+
 ```go
 type Account struct {
     ID            uint
@@ -264,6 +277,7 @@ type Account struct {
 ```
 
 ### Transfer
+
 ```go
 type Transfer struct {
     ID            uint
@@ -276,6 +290,7 @@ type Transfer struct {
 ```
 
 ### Transaction
+
 ```go
 type Transaction struct {
     ID          uint
@@ -291,6 +306,7 @@ type Transaction struct {
 ## Seguridad y Limitaciones
 
 ### Decisiones de Diseño (Simplificación)
+
 - ❌ No hay autenticación
 - ❌ No hay autorización
 - ❌ Validaciones mínimas
@@ -298,6 +314,7 @@ type Transaction struct {
 - ❌ Sin encriptación de datos sensibles
 
 ### Para Producción se Necesitaría
+
 - ✅ Autenticación JWT/OAuth2
 - ✅ Autorización basada en roles
 - ✅ Validaciones completas de datos
@@ -311,16 +328,18 @@ type Transaction struct {
 
 ## Escalabilidad
 
-### Actual (Single Instance)
-- 1 replica de Bank API
-- SQLite (single file)
-- Adecuado para: Demo, desarrollo, pruebas
+### Actual
+
+- 1 replica de accounts-api y 1 de transfers-api (en K8s comparten PVC para SQLite)
+- SQLite (fichero único compartido vía mismo `DB_PATH`)
+- Adecuado para: demo, desarrollo, pruebas
 
 ### Para Escalar
+
 1. **Horizontal Scaling**
-   - Múltiples replicas de Bank API
-   - Load balancer (Ingress en K8s)
-   - Database: PostgreSQL/MySQL con connection pooling
+   - Múltiples réplicas de accounts-api y/o transfers-api
+   - Load balancer (Ingress en K8s) por servicio
+   - Base de datos: PostgreSQL/MySQL con connection pooling (sustituir SQLite)
 
 2. **Observabilidad Escalada**
    - Tempo con S3/GCS backend
@@ -336,11 +355,13 @@ type Transaction struct {
 ## Despliegue en Diferentes Entornos
 
 ### Desarrollo (Docker Compose)
+
 - Todo en un solo docker-compose.yml
 - Volúmenes locales
 - Networking simplificado
 
 ### Staging/Producción (Kubernetes)
+
 - Namespaces separados
 - PersistentVolumeClaims
 - ConfigMaps y Secrets
@@ -353,24 +374,28 @@ type Transaction struct {
 ### Métricas Disponibles (Prometheus)
 
 #### Métricas HTTP
+
 - `http_requests_total` - Total de requests por método, endpoint y status code
 - `http_request_duration_seconds` - Duración de requests HTTP (histograma)
 - `http_request_size_bytes` - Tamaño de requests HTTP
 - `http_response_size_bytes` - Tamaño de responses HTTP
 
 #### Métricas de Negocio
+
 - `bank_accounts_total` - Total de cuentas bancarias creadas
 - `bank_transfers_total` - Total de transferencias (por status: success/failed)
 - `bank_transfer_amount_total` - Monto total transferido
 - `bank_account_balance` - Balance actual por cuenta (gauge)
 
 ### Logs Estructurados
+
 - Formato JSON
 - Trace ID en cada log
 - Niveles: INFO, WARN, ERROR
 - Contextual information
 
 ### Trazas Distribuidas
+
 - Full request lifecycle
 - Service-to-database latency
 - Error tracking

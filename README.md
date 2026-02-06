@@ -74,11 +74,15 @@ Sistema de API bancaria simple construido con Go y Gin, integrado con OpenTeleme
 
 ## Estructura del Proyecto
 
+La API se despliega como dos microservicios (accounts-api y transfers-api) que comparten la misma base de datos.
+
 ```
 .
 ├── cmd/
-│   └── server/
-│       └── main.go                 # Punto de entrada
+│   ├── accounts-api/
+│   │   └── main.go                 # Microservicio de cuentas (puerto 8080)
+│   └── transfers-api/
+│       └── main.go                 # Microservicio de transferencias (puerto 8081)
 ├── internal/
 │   ├── handlers/                   # Handlers HTTP
 │   ├── models/                     # Modelos de datos
@@ -111,20 +115,29 @@ Sistema de API bancaria simple construido con Go y Gin, integrado con OpenTeleme
 
 #### Pasos
 
-1. **Construir la imagen Docker:**
+1. **Construir las imágenes Docker de ambos microservicios:**
 
 ```bash
-docker build -t bank-api:latest .
+docker build -f Dockerfile.accounts -t accounts-api:latest .
+docker build -f Dockerfile.transfers -t transfers-api:latest .
 ```
 
-2. **Cargar la imagen en el cluster (si usas kind o minikube):**
+O usar el script de despliegue (construye y despliega):
+
+```bash
+./scripts/deploy-k8s.sh
+```
+
+2. **Cargar las imágenes en el cluster (si usas kind o minikube):**
 
 ```bash
 # Para kind
-kind load docker-image bank-api:latest
+kind load docker-image accounts-api:latest
+kind load docker-image transfers-api:latest
 
 # Para minikube
-minikube image load bank-api:latest
+minikube image load accounts-api:latest
+minikube image load transfers-api:latest
 ```
 
 3. **Desplegar todos los componentes:**
@@ -142,10 +155,17 @@ kubectl apply -f k8s/promtail/
 kubectl apply -f k8s/prometheus/
 kubectl apply -f k8s/grafana/
 
-# Aplicar la API
+# Aplicar la API (configmaps, PVC compartido, deployments y services de ambos microservicios)
+kubectl apply -f k8s/configmap.yaml
+kubectl apply -f k8s/configmap-transfers.yaml
+kubectl apply -f k8s/pvc-data.yaml
 kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/deployment-transfers.yaml
 kubectl apply -f k8s/service.yaml
+kubectl apply -f k8s/service-transfers.yaml
 ```
+
+**Nota:** El PVC compartido (`pvc-data.yaml`) usa `ReadWriteMany` para que ambos pods monten la misma DB. Si tu cluster no tiene un storage class con RWM (p. ej. kind/minikube sin NFS), el PVC puede quedar en Pending. En ese caso, para desarrollo local puedes cambiar en `deployment.yaml` y `deployment-transfers.yaml` el volumen a `emptyDir: {}` en lugar de `persistentVolumeClaim`; entonces cada pod tendrá su propia DB y los datos no se comparten entre servicios.
 
 4. **Verificar el despliegue:**
 
@@ -157,8 +177,9 @@ kubectl get services -n banking-system
 5. **Acceder a los servicios:**
 
 ```bash
-# API (NodePort 30080)
+# Accounts API (NodePort 30080) y Transfers API (NodePort 30081)
 curl http://localhost:30080/health
+curl http://localhost:30081/health
 
 # Grafana (NodePort 30300)
 # Usuario: admin / Contraseña: admin
@@ -174,7 +195,8 @@ Si prefieres usar port-forward en lugar de NodePort:
 
 ```bash
 # API
-kubectl port-forward -n banking-system svc/bank-api 8080:8080
+kubectl port-forward -n banking-system svc/accounts-api 8080:8080
+kubectl port-forward -n banking-system svc/transfers-api 8081:8081
 
 # Grafana
 kubectl port-forward -n banking-system svc/grafana 3000:3000
@@ -214,8 +236,9 @@ kubectl port-forward -n banking-system svc/prometheus 9090:9090
    # Cargar variables de entorno recomendadas (opcional)
    # export $(cat .env.example | xargs)
 
-   # Ejecutar la API
-   go run cmd/server/main.go
+   # Ejecutar ambos microservicios (en dos terminales)
+   PORT=8080 go run ./cmd/accounts-api
+   PORT=8081 go run ./cmd/transfers-api
    ```
 
    La API se iniciará en `http://localhost:8080` y enviará:
@@ -345,16 +368,24 @@ La aplicación expone métricas Prometheus en el endpoint `/metrics`:
 ### Compilar localmente
 
 ```bash
-go build -o bank-api ./cmd/server
+make build
+# o por separado:
+make build-accounts build-transfers
 ```
 
 ### Ejecutar localmente
 
+Ejecuta ambos microservicios en dos terminales (comparten la misma DB_PATH):
+
 ```bash
 export DB_PATH=./data/bank.db
-export PORT=8080
 export OTLP_ENDPOINT=localhost:4318
-./bank-api
+
+# Terminal 1: accounts-api
+PORT=8080 go run ./cmd/accounts-api
+
+# Terminal 2: transfers-api
+PORT=8081 go run ./cmd/transfers-api
 ```
 
 ### Ejecutar tests

@@ -31,15 +31,26 @@ data:
             labels:
               service: 'prometheus'
 
-      # Scrape Bank API
-      - job_name: 'bank-api'
+      # Scrape accounts-api
+      - job_name: 'accounts-api'
         metrics_path: '/metrics'
         scrape_interval: 15s
         static_configs:
-          - targets: ['bank-api:8080']
+          - targets: ['accounts-api:8080']
             labels:
-              service: 'bank-api'
-              app: 'bank-api'
+              service: 'accounts-api'
+              app: 'accounts-api'
+              namespace: 'banking-system'
+
+      # Scrape transfers-api
+      - job_name: 'transfers-api'
+        metrics_path: '/metrics'
+        scrape_interval: 15s
+        static_configs:
+          - targets: ['transfers-api:8081']
+            labels:
+              service: 'transfers-api'
+              app: 'transfers-api'
               namespace: 'banking-system'
 
       # Scrape Grafana metrics (if enabled)

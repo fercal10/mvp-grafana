@@ -15,9 +15,9 @@ Prometheus has been successfully integrated into the Bank API project, completin
 - `pkg/telemetry/metrics.go` - Prometheus metrics configuration and middleware
 
 #### Modified Files
-- `cmd/server/main.go` - Added Prometheus middleware and `/metrics` endpoint
-- `internal/service/account_service.go` - Added business metrics for account operations
-- `internal/service/transfer_service.go` - Added business metrics for transfer operations
+- `cmd/accounts-api/main.go` and `cmd/transfers-api/main.go` - Prometheus middleware and `/metrics` endpoint in both microservices
+- `internal/service/account_service.go` - Business metrics for account operations
+- `internal/service/transfer_service.go` - Business metrics for transfer operations
 
 ### 2. Infrastructure Configuration
 
@@ -145,7 +145,8 @@ bank_account_balance{account_number="ACC001"}
 
 ### Targets
 Prometheus scrapes metrics from:
-- Bank API (`bank-api:8080/metrics`)
+- accounts-api (`accounts-api:8080/metrics`)
+- transfers-api (`transfers-api:8081/metrics`)
 - Prometheus itself (`localhost:9090`)
 - Grafana (`grafana:3000`)
 - Loki (`loki:3100`)

@@ -5,18 +5,20 @@ import (
 )
 
 type TransactionHandler struct {
-	// Transactions are handled through AccountHandler's GetAccountTransactions
-	// This file is a placeholder for any future transaction-specific endpoints
+	ServiceName string
 }
 
-func NewTransactionHandler() *TransactionHandler {
-	return &TransactionHandler{}
+func NewTransactionHandler(serviceName string) *TransactionHandler {
+	if serviceName == "" {
+		serviceName = "api"
+	}
+	return &TransactionHandler{ServiceName: serviceName}
 }
 
 // Health check endpoint
 func (h *TransactionHandler) HealthCheck(c *gin.Context) {
 	c.JSON(200, gin.H{
-		"status": "healthy",
-		"service": "bank-api",
+		"status":  "healthy",
+		"service": h.ServiceName,
 	})
 }

@@ -2,9 +2,13 @@
 
 set -e
 
+# With microservices: first arg = accounts-api URL, second arg = transfers-api URL (defaults to first if omitted)
 BASE_URL="${1:-http://localhost:8080}"
+TRANSFERS_URL="${2:-$BASE_URL}"
 
-echo "🧪 Testing Bank API at $BASE_URL"
+echo "🧪 Testing Bank API"
+echo "   Accounts:  $BASE_URL"
+echo "   Transfers: $TRANSFERS_URL"
 echo ""
 
 # Health check
@@ -43,7 +47,7 @@ echo ""
 
 # Make a transfer
 echo "5️⃣  Making transfer from ACC001 to ACC002..."
-TRANSFER=$(curl -s -X POST "$BASE_URL/api/transfers" \
+TRANSFER=$(curl -s -X POST "$TRANSFERS_URL/api/transfers" \
   -H "Content-Type: application/json" \
   -d '{
     "from_account_number": "ACC001",

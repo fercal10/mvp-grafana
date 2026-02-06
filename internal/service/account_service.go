@@ -11,7 +11,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-var tracer = otel.Tracer("bank-api")
+var accountTracer = otel.Tracer("accounts-api")
 
 type AccountService struct {
 	repo *repository.Repository
@@ -22,7 +22,7 @@ func NewAccountService(repo *repository.Repository) *AccountService {
 }
 
 func (s *AccountService) CreateAccount(ctx context.Context, req models.CreateAccountRequest) (*models.Account, error) {
-	ctx, span := tracer.Start(ctx, "AccountService.CreateAccount")
+	ctx, span := accountTracer.Start(ctx, "AccountService.CreateAccount")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("account.number", req.AccountNumber))
@@ -60,7 +60,7 @@ func (s *AccountService) CreateAccount(ctx context.Context, req models.CreateAcc
 }
 
 func (s *AccountService) GetAccount(ctx context.Context, id uint) (*models.Account, error) {
-	ctx, span := tracer.Start(ctx, "AccountService.GetAccount")
+	ctx, span := accountTracer.Start(ctx, "AccountService.GetAccount")
 	defer span.End()
 
 	span.SetAttributes(attribute.Int("account.id", int(id)))
@@ -75,7 +75,7 @@ func (s *AccountService) GetAccount(ctx context.Context, id uint) (*models.Accou
 }
 
 func (s *AccountService) ListAccounts(ctx context.Context) ([]models.Account, error) {
-	ctx, span := tracer.Start(ctx, "AccountService.ListAccounts")
+	ctx, span := accountTracer.Start(ctx, "AccountService.ListAccounts")
 	defer span.End()
 
 	accounts, err := s.repo.ListAccounts(ctx)
@@ -90,7 +90,7 @@ func (s *AccountService) ListAccounts(ctx context.Context) ([]models.Account, er
 }
 
 func (s *AccountService) GetAccountTransactions(ctx context.Context, id uint) ([]models.Transaction, error) {
-	ctx, span := tracer.Start(ctx, "AccountService.GetAccountTransactions")
+	ctx, span := accountTracer.Start(ctx, "AccountService.GetAccountTransactions")
 	defer span.End()
 
 	span.SetAttributes(attribute.Int("account.id", int(id)))

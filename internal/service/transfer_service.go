@@ -7,9 +7,12 @@ import (
 	"github.com/tribal/bank-api/internal/models"
 	"github.com/tribal/bank-api/internal/repository"
 	"github.com/tribal/bank-api/pkg/telemetry"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
 )
+
+var transferTracer = otel.Tracer("transfers-api")
 
 type TransferService struct {
 	repo *repository.Repository
@@ -20,7 +23,7 @@ func NewTransferService(repo *repository.Repository) *TransferService {
 }
 
 func (s *TransferService) CreateTransfer(ctx context.Context, req models.CreateTransferRequest) (*models.Transfer, error) {
-	ctx, span := tracer.Start(ctx, "TransferService.CreateTransfer")
+	ctx, span := transferTracer.Start(ctx, "TransferService.CreateTransfer")
 	defer span.End()
 
 	span.SetAttributes(
@@ -131,7 +134,7 @@ func (s *TransferService) CreateTransfer(ctx context.Context, req models.CreateT
 }
 
 func (s *TransferService) GetTransfer(ctx context.Context, id uint) (*models.Transfer, error) {
-	ctx, span := tracer.Start(ctx, "TransferService.GetTransfer")
+	ctx, span := transferTracer.Start(ctx, "TransferService.GetTransfer")
 	defer span.End()
 
 	span.SetAttributes(attribute.Int("transfer.id", int(id)))

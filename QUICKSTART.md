@@ -57,16 +57,24 @@ docker-compose down
 
 ## Opción 2: Kubernetes
 
-### 1. Construir imagen
+### 1. Construir imágenes de ambos microservicios
 
 ```bash
-docker build -t bank-api:latest .
+docker build -f Dockerfile.accounts -t accounts-api:latest .
+docker build -f Dockerfile.transfers -t transfers-api:latest .
 ```
 
-### 2. Cargar imagen al cluster (si usas kind)
+O usar el script de despliegue (construye y despliega):
 
 ```bash
-kind load docker-image bank-api:latest
+./scripts/deploy-k8s.sh
+```
+
+### 2. Cargar imágenes al cluster (si usas kind)
+
+```bash
+kind load docker-image accounts-api:latest
+kind load docker-image transfers-api:latest
 ```
 
 ### 3. Desplegar
@@ -205,13 +213,15 @@ kubectl logs -n banking-system <pod-name>
 
 **Problema**: Imagen no encontrada
 ```bash
-# Verificar que la imagen esté cargada
-docker images | grep bank-api
+# Verificar que las imágenes estén cargadas
+docker images | grep -E "accounts-api|transfers-api"
 
-# Recargar imagen
-kind load docker-image bank-api:latest
+# Recargar imágenes
+kind load docker-image accounts-api:latest
+kind load docker-image transfers-api:latest
 # o
-minikube image load bank-api:latest
+minikube image load accounts-api:latest
+minikube image load transfers-api:latest
 ```
 
 ---

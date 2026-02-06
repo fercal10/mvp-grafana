@@ -21,8 +21,10 @@ Sistema completo de API bancaria desarrollado en Go con Gin, totalmente instrume
 
 ```
 mvp-grafana/
-├── cmd/server/                    # Aplicación principal
-├── internal/                      # Código de la aplicación
+├── cmd/
+│   ├── accounts-api/              # Microservicio de cuentas
+│   └── transfers-api/             # Microservicio de transferencias
+├── internal/                      # Código compartido
 │   ├── handlers/                  # REST API handlers
 │   ├── models/                    # Modelos de datos
 │   ├── repository/                # Acceso a datos (SQLite)
@@ -63,7 +65,7 @@ mvp-grafana/
 - ✅ **Promtail**: Recolección automática de logs
 
 ### 4. Infraestructura
-- ✅ **Docker**: Dockerfile multi-stage optimizado
+- ✅ **Docker**: Dockerfile.accounts y Dockerfile.transfers para cada microservicio
 - ✅ **Docker Compose**: Stack completo para desarrollo
 - ✅ **Kubernetes**: Manifiestos completos para producción
 - ✅ **ConfigMaps**: Configuración externalizada
@@ -203,13 +205,15 @@ make test-api           # Probar API
 ## 📝 Archivos Clave
 
 ### Código
-- `cmd/server/main.go` - Entry point con setup completo
+- `cmd/accounts-api/main.go` - Entry point del microservicio de cuentas
+- `cmd/transfers-api/main.go` - Entry point del microservicio de transferencias
 - `pkg/telemetry/setup.go` - Configuración OpenTelemetry
 - `internal/service/*.go` - Lógica de negocio con trazas
 
 ### Configuración
 - `docker-compose.yml` - Stack completo para desarrollo
-- `k8s/deployment.yaml` - Deployment de la API
+- `k8s/deployment.yaml` - Deployment de accounts-api
+- `k8s/deployment-transfers.yaml` - Deployment de transfers-api
 - `k8s/grafana/configmap.yaml` - Datasources de Grafana
 
 ### Documentación

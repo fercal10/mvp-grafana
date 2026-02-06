@@ -1,8 +1,10 @@
-.PHONY: build run test docker-build docker-run k8s-deploy k8s-delete compose-up compose-down clean help
+.PHONY: build run test build-accounts build-transfers build-all k8s-deploy k8s-delete k8s-logs-accounts k8s-logs-transfers clean help
 
 # Variables
-APP_NAME=bank-api
-DOCKER_IMAGE=$(APP_NAME):latest
+ACCOUNTS_APP=accounts-api
+TRANSFERS_APP=transfers-api
+ACCOUNTS_IMAGE=$(ACCOUNTS_APP):latest
+TRANSFERS_IMAGE=$(TRANSFERS_APP):latest
 NAMESPACE=banking-system
 
 help: ## Show this help message
@@ -11,13 +13,21 @@ help: ## Show this help message
 	@echo 'Available targets:'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-build: ## Build the Go application
-	@echo "Building $(APP_NAME)..."
-	go build -o $(APP_NAME) ./cmd/server
+build: build-all ## Build both microservices (alias of build-all)
 
-run: ## Run the application locally
-	@echo "Running $(APP_NAME)..."
-	go run ./cmd/server
+build-accounts: ## Build accounts-api binary
+	@echo "Building $(ACCOUNTS_APP)..."
+	go build -o $(ACCOUNTS_APP) ./cmd/accounts-api
+
+build-transfers: ## Build transfers-api binary
+	@echo "Building $(TRANSFERS_APP)..."
+	go build -o $(TRANSFERS_APP) ./cmd/transfers-api
+
+build-all: build-accounts build-transfers ## Build both microservices
+
+run: ## Run both microservices locally (run in two terminals: PORT=8080 go run ./cmd/accounts-api and PORT=8081 go run ./cmd/transfers-api)
+	@echo "Run accounts-api:  PORT=8080 go run ./cmd/accounts-api"
+	@echo "Run transfers-api: PORT=8081 go run ./cmd/transfers-api"
 
 test: ## Run tests
 	@echo "Running tests..."
@@ -27,16 +37,17 @@ tidy: ## Run go mod tidy
 	@echo "Tidying dependencies..."
 	go mod tidy
 
-docker-build: ## Build Docker image
-	@echo "Building Docker image..."
-	docker build -t $(DOCKER_IMAGE) .
+docker-build-accounts: ## Build accounts-api Docker image
+	@echo "Building Docker image $(ACCOUNTS_IMAGE)..."
+	docker build -f Dockerfile.accounts -t $(ACCOUNTS_IMAGE) .
 
-docker-run: ## Run Docker image locally
-	@echo "Running Docker container..."
-	docker run -p 8080:8080 --rm --name $(APP_NAME) $(DOCKER_IMAGE)
+docker-build-transfers: ## Build transfers-api Docker image
+	@echo "Building Docker image $(TRANSFERS_IMAGE)..."
+	docker build -f Dockerfile.transfers -t $(TRANSFERS_IMAGE) .
 
+docker-build-microservices: docker-build-accounts docker-build-transfers ## Build both microservice images
 
-k8s-deploy: docker-build ## Deploy to Kubernetes
+k8s-deploy: ## Deploy to Kubernetes (script builds both images and applies manifests)
 	@echo "Deploying to Kubernetes..."
 	@./scripts/deploy-k8s.sh
 
@@ -48,18 +59,21 @@ k8s-status: ## Check Kubernetes deployment status
 	@echo "Checking Kubernetes status..."
 	kubectl get all -n $(NAMESPACE)
 
-k8s-logs: ## Show Kubernetes logs
-	kubectl logs -n $(NAMESPACE) -l app=$(APP_NAME) -f
+k8s-logs-accounts: ## Show Kubernetes logs for accounts-api
+	kubectl logs -n $(NAMESPACE) -l app=$(ACCOUNTS_APP) -f
+
+k8s-logs-transfers: ## Show Kubernetes logs for transfers-api
+	kubectl logs -n $(NAMESPACE) -l app=$(TRANSFERS_APP) -f
 
 test-api: ## Test API endpoints
 	@./scripts/test-api.sh
 
-test-api-k8s: ## Test API endpoints on Kubernetes
-	@./scripts/test-api.sh http://localhost:30080
+test-api-k8s: ## Test API endpoints on Kubernetes (accounts + transfers)
+	@./scripts/test-api.sh http://localhost:30080 http://localhost:30081
 
 clean: ## Clean build artifacts
 	@echo "Cleaning..."
-	rm -f $(APP_NAME)
+	rm -f $(ACCOUNTS_APP) $(TRANSFERS_APP)
 	rm -rf data/
 	go clean
 

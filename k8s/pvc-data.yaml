@@ -1,0 +1,15 @@
+# Shared PVC for SQLite DB so both accounts-api and transfers-api use the same DB_PATH.
+# For two pods to mount the same PVC, use ReadWriteMany (e.g. NFS). If your cluster
+# does not support ReadWriteMany, you may need to use a single replica or switch to emptyDir per deployment.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-pvc
+  namespace: banking-system
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi
+  # storageClassName: optional - set if your cluster has an RWM storage class (e.g. NFS)

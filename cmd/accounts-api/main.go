@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	serviceName    = "bank-api"
+	serviceName    = "accounts-api"
 	serviceVersion = "1.0.0"
 )
 
@@ -54,14 +54,10 @@ func main() {
 		logger.Fatal("Failed to initialize repository: %v", err)
 	}
 
-	// Initialize services
+	// Initialize services and handlers
 	accountService := service.NewAccountService(repo)
-	transferService := service.NewTransferService(repo)
-
-	// Initialize handlers
 	accountHandler := handlers.NewAccountHandler(accountService)
-	transferHandler := handlers.NewTransferHandler(transferService)
-	transactionHandler := handlers.NewTransactionHandler()
+	transactionHandler := handlers.NewTransactionHandler(serviceName)
 
 	// Setup Gin router
 	router := gin.Default()
@@ -85,15 +81,10 @@ func main() {
 	// API routes
 	api := router.Group("/api")
 	{
-		// Account routes
 		api.GET("/accounts", accountHandler.ListAccounts)
 		api.GET("/accounts/:id", accountHandler.GetAccount)
 		api.POST("/accounts", accountHandler.CreateAccount)
 		api.GET("/accounts/:id/transactions", accountHandler.GetAccountTransactions)
-
-		// Transfer routes
-		api.POST("/transfers", transferHandler.CreateTransfer)
-		api.GET("/transfers/:id", transferHandler.GetTransfer)
 	}
 
 	// Get port from environment or use default

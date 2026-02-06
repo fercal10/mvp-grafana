@@ -89,7 +89,7 @@ func (l *LokiLogger) sendToLoki(level, msg string) error {
 					"app":       l.serviceName,
 					"namespace": "banking-system",
 					"level":     level,
-					"source":    "bank-api",
+					"source":    l.serviceName,
 				},
 				Values: [][]string{
 					{timestamp, msg},

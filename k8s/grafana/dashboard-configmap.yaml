@@ -8,8 +8,8 @@ data:
     {
       "id": null,
       "uid": "bank-api-dashboard",
-      "title": "Bank API Monitoring",
-      "tags": ["bank-api", "opentelemetry"],
+      "title": "Bank API Microservices",
+      "tags": ["accounts-api", "transfers-api", "opentelemetry"],
       "timezone": "browser",
       "schemaVersion": 16,
       "version": 0,
@@ -27,7 +27,7 @@ data:
           },
           "targets": [
             {
-              "expr": "rate({namespace=\"banking-system\", app=\"bank-api\"}[5m])",
+              "expr": "rate({namespace=\"banking-system\", app=~\"accounts-api|transfers-api\"}[5m])",
               "refId": "A",
               "datasource": {
                 "type": "loki",
@@ -48,7 +48,7 @@ data:
           },
           "targets": [
             {
-              "expr": "{namespace=\"banking-system\", app=\"bank-api\"}",
+              "expr": "{namespace=\"banking-system\", app=~\"accounts-api|transfers-api\"}",
               "refId": "A",
               "datasource": {
                 "type": "loki",
@@ -74,7 +74,7 @@ data:
           },
           "targets": [
             {
-              "expr": "sum by (status) (rate({namespace=\"banking-system\", app=\"bank-api\"} | json | status != \"\" [5m]))",
+              "expr": "sum by (status) (rate({namespace=\"banking-system\", app=~\"accounts-api|transfers-api\"} | json | status != \"\" [5m]))",
               "refId": "A",
               "datasource": {
                 "type": "loki",
@@ -95,7 +95,7 @@ data:
           },
           "targets": [
             {
-              "expr": "{namespace=\"banking-system\", app=\"bank-api\"} |= \"POST\" |= \"/api/transfers\"",
+              "expr": "{namespace=\"banking-system\", app=~\"accounts-api|transfers-api\"} |= \"POST\" |= \"/api/transfers\"",
               "refId": "A",
               "datasource": {
                 "type": "loki",
@@ -116,7 +116,7 @@ data:
           },
           "targets": [
             {
-              "expr": "{namespace=\"banking-system\", app=\"bank-api\"} |~ \"error|Error|ERROR|failed|Failed\"",
+              "expr": "{namespace=\"banking-system\", app=~\"accounts-api|transfers-api\"} |~ \"error|Error|ERROR|failed|Failed\"",
               "refId": "A",
               "datasource": {
                 "type": "loki",
