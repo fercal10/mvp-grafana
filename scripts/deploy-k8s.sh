@@ -59,12 +59,12 @@ kubectl wait --for=condition=ready pod -l app=transfers-api -n banking-system --
 
 # Exponer puertos en localhost (port-forward; en k3d/kind NodePort no siempre llega al host)
 echo "🔌 Exponiendo puertos en localhost..."
-pkill -f "port-forward.*banking-system.*30080" 2>/dev/null || true
-pkill -f "port-forward.*banking-system.*30081" 2>/dev/null || true
-pkill -f "port-forward.*banking-system.*30300" 2>/dev/null || true
-nohup kubectl port-forward -n banking-system svc/accounts-api 30080:8080 >/dev/null 2>&1 &
-nohup kubectl port-forward -n banking-system svc/transfers-api 30081:8081 >/dev/null 2>&1 &
-nohup kubectl port-forward -n banking-system svc/grafana 30300:80 >/dev/null 2>&1 &
+pkill -f "port-forward.*banking-system.*30080"
+pkill -f "port-forward.*banking-system.*30081"
+pkill -f "port-forward.*banking-system.*30300"
+nohup kubectl port-forward -n banking-system svc/accounts-api 30080:8080 
+nohup kubectl port-forward -n banking-system svc/transfers-api 30081:8081 
+nohup kubectl port-forward -n banking-system svc/grafana 30300:80 
 sleep 1
 
 echo "✅ Deployment complete!"

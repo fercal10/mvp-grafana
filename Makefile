@@ -1,4 +1,4 @@
-.PHONY: build run test build-accounts build-transfers build-all k8s-deploy k8s-delete k8s-status helm-repo-update k8s-logs-accounts k8s-logs-transfers clean help
+.PHONY: build run test build-accounts build-transfers build-all k8s-deploy k8s-delete k8s-status helm-repo-update reload-grafana k8s-logs-accounts k8s-logs-transfers clean help
 
 # Variables
 ACCOUNTS_APP=accounts-api
@@ -64,6 +64,13 @@ helm-repo-update: ## Update Helm repos (grafana, prometheus-community)
 	helm repo add grafana https://grafana.github.io/helm-charts 2>/dev/null || true
 	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts 2>/dev/null || true
 	helm repo update
+
+reload-grafana: ## Reload Grafana config (helm upgrade + rollout restart to pick up ConfigMaps)
+	@echo "Reloading Grafana config..."
+	helm upgrade --install grafana grafana/grafana -n $(NAMESPACE) -f k8s/helm/grafana-values.yaml
+	kubectl rollout restart deployment/grafana -n $(NAMESPACE)
+	kubectl rollout status deployment/grafana -n $(NAMESPACE) --timeout=120s
+	@echo "Grafana config reloaded."
 
 k8s-logs-accounts: ## Show Kubernetes logs for accounts-api
 	kubectl logs -n $(NAMESPACE) -l app=$(ACCOUNTS_APP) -f
